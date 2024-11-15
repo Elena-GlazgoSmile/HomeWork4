@@ -439,6 +439,158 @@ public class Perceptron : MonoBehaviour {
 
 ![Снимок экрана 2024-11-15 122211](https://github.com/user-attachments/assets/996c7176-27c2-4624-94a6-b8e73b4abdbf)
 
+Итак, я немного модифицировала изначальный код перцептрона, и теперь хочу немного пояснить модифицирование. 
+
+Создала три публичных поля с типом Material: def - цвет по дефолту(он чёрный), wrong - цвет красный, если есть тотальные ошибки, right - зеленый цвет, если тотальных ошибок нет. Сделала их публичными, чтобы в инспекторе могла передать нужные Material. Например, оказалось, чтобы не окрасились из-за одного тестирования сразу все фигуры, не относящиеся к этому тестированию никакого отношения, дефолтных цветов пришлось делать на каждую фигуру свой.
+
+![Снимок экрана 2024-11-15 223853](https://github.com/user-attachments/assets/9b8341bd-049e-40cb-ad0d-659f5fe2aee3)
+
+![Снимок экрана 2024-11-15 224101](https://github.com/user-attachments/assets/c956148b-6f83-4913-955d-bbe9c2211b79)
+
+Далее, чтобы происходило какое-то чудо, прежде чем узнать, прошли ли все тесты успешно, я решила добавить метод на считывание столкновения предметов OnCollisionEnter. И это же столкновение фигур является главным условием, чтобы у черных фигур поменялся цвет на цвет, интерпретирующий пройденные тесты. 
+
+![Снимок экрана 2024-11-15 223846](https://github.com/user-attachments/assets/442d298d-6378-4db2-bd42-2a0fa2688d45)
+
+Чтобы визуально было понятно, какая фигура отвечает за какое логическое выражение, я добавила текст над каждой тестовой фигурой на канве.
+
+![Снимок экрана 2024-11-15 223827](https://github.com/user-attachments/assets/7dbf1057-0429-41eb-8222-6eb6d92459c8)
+
+Вот как выглядит код перцептрона теперь.
+
+```
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+[System.Serializable]
+public class TrainingSet
+{
+	public double[] input;
+	public double output;
+}
+
+
+public class Perceptron : MonoBehaviour {
+
+	public TrainingSet[] ts;
+	double[] weights = {0,0};
+	double bias = 0;
+	public double totalError = -1;
+    	public Material def;
+    	public Material wrong;
+    	public Material right;
+
+    double DotProductBias(double[] v1, double[] v2) 
+	{
+		if (v1 == null || v2 == null)
+			return -1;
+	 
+		if (v1.Length != v2.Length)
+			return -1;
+	 
+		double d = 0;
+		for (int x = 0; x < v1.Length; x++)
+		{
+			d += v1[x] * v2[x];
+		}
+
+		d += bias;
+	 
+		return d;
+	}
+
+	double CalcOutput(int i)
+	{
+		double dp = DotProductBias(weights,ts[i].input);
+		if(dp > 0) return(1);
+		return (0);
+	}
+
+	void InitialiseWeights()
+	{
+		for(int i = 0; i < weights.Length; i++)
+		{
+			weights[i] = Random.Range(-1.0f,1.0f);
+		}
+		bias = Random.Range(-1.0f,1.0f);
+	}
+
+	void UpdateWeights(int j)
+	{
+		double error = ts[j].output - CalcOutput(j);
+		totalError += Mathf.Abs((float)error);
+		for(int i = 0; i < weights.Length; i++)
+		{			
+			weights[i] = weights[i] + error*ts[j].input[i]; 
+		}
+		bias += error;
+	}
+
+	double CalcOutput(double i1, double i2)
+	{
+		double[] inp = new double[] {i1, i2};
+		double dp = DotProductBias(weights,inp);
+		if(dp > 0) return(1);
+		return (0);
+	}
+
+	public void Train(int epochs)
+	{
+		InitialiseWeights();
+		
+		for(int e = 0; e < epochs; e++)
+		{
+			totalError = 0;
+			for(int t = 0; t < ts.Length; t++)
+			{
+				UpdateWeights(t);
+				Debug.Log("W1: " + (weights[0]) + " W2: " + (weights[1]) + " B: " + bias);
+			}
+			Debug.Log("TOTAL ERROR: " + totalError);
+		}
+	}
+
+    void OnCollisionEnter(Collision collision)
+    {
+        if (totalError > 0)
+            def.color = wrong.color;
+        if (totalError == 0)
+            def.color = right.color;
+
+    }
+
+    void Start () {
+		Train(1);
+        
+        Debug.Log("Test 0 0: " + CalcOutput(0,0));
+		Debug.Log("Test 0 1: " + CalcOutput(0,1));
+		Debug.Log("Test 1 0: " + CalcOutput(1,0));
+		Debug.Log("Test 1 1: " + CalcOutput(1,1));
+		
+	}
+	
+	void Update () {
+        
+    }
+}
+```
+
+Сначала я поставила количество эпох обучения - 1. Для всех четырёх логических выражений тесты были провалены, поэтому все черные фигуры стали красными.
+
+![Снимок экрана 2024-11-15 224349](https://github.com/user-attachments/assets/7991807e-3173-4b56-b1c9-ccaa3b549921)
+
+Увеличу количество эпох до трёх. И теперь первое логическое выражение прошло все проверки, а это значит, что перцептрон обучился логическому выражению OR (опечаталась в игре, AND и OR должны быть поменяны местами)
+
+![Снимок экрана 2024-11-15 224730](https://github.com/user-attachments/assets/67f596b7-977e-400b-9409-4c276838340f)
+
+Количество эпох обучения 6 - и теперь перцептрон обучился почти всем логическим выражениям, кроме XOR.
+
+![Снимок экрана 2024-11-15 230521](https://github.com/user-attachments/assets/2b28b348-7a3b-4b47-a231-b8102c31fad0)
+
+Для достоверности того, что XOR с его нелинейной зависимостью невозможно обучить перцептрон, я повысила количество эпох до 100, и всё равно картина та же.
+
+![Снимок экрана 2024-11-15 230716](https://github.com/user-attachments/assets/f73c2bde-81f0-42e6-bddc-9058626d751d)
+
 ## Выводы
 
 Абзац умных слов о том, что было сделано и что было узнано.
